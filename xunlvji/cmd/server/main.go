@@ -84,6 +84,7 @@ func main() {
 		DB:     db,
 		RDB:    rdb,
 		JWTMgr: jwtMgr,
+		Config: cfg,
 	})
 
 	// 8. 启动 HTTP 服务

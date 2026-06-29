@@ -5,9 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"github.com/xunlvji/xunlvji/internal/config"
+	"github.com/xunlvji/xunlvji/internal/controller"
 	"github.com/xunlvji/xunlvji/internal/middleware"
+	"github.com/xunlvji/xunlvji/internal/repository"
+	"github.com/xunlvji/xunlvji/internal/service"
 	"github.com/xunlvji/xunlvji/pkg/jwt"
 	"github.com/xunlvji/xunlvji/pkg/response"
+	"github.com/xunlvji/xunlvji/pkg/wechat"
 	"gorm.io/gorm"
 )
 
@@ -16,6 +21,7 @@ type Dependencies struct {
 	DB      *gorm.DB
 	RDB     *redis.Client
 	JWTMgr  *jwt.Manager
+	Config  *config.Config
 }
 
 // New 创建并注册路由
@@ -36,6 +42,19 @@ func New(deps Dependencies) *gin.Engine {
 		response.Success(c, gin.H{"message": "pong"})
 	})
 
+	// === 依赖注入：仓库层 ===
+	userRepo := repository.NewUserRepository(deps.DB)
+	oauthRepo := repository.NewOAuthRepository(deps.DB)
+
+	// === 依赖注入：服务层 ===
+	wechatCli := wechat.NewClient(deps.Config.WeChat)
+	authSvc := service.NewAuthService(deps.DB, userRepo, oauthRepo, wechatCli, deps.JWTMgr)
+	userSvc := service.NewUserService(userRepo)
+
+	// === 依赖注入：控制器层 ===
+	authCtrl := controller.NewAuthController(authSvc)
+	userCtrl := controller.NewUserController(userSvc)
+
 	// API v1 路由组
 	v1 := r.Group("/api/v1")
 	// 全局限流：每IP每秒60次
@@ -44,23 +63,58 @@ func New(deps Dependencies) *gin.Engine {
 	// --- 公开接口（无需鉴权）---
 	pub := v1.Group("")
 	{
-		// 健康检查
 		pub.GET("/status", healthCheck(deps))
-		// 后续接入：微信登录(code2session)、短信验证码发送等
+
+		// 认证相关
+		auth := pub.Group("/auth")
+		{
+			// 微信登录
+			auth.POST("/login/wechat", authCtrl.WechatLogin)
+			// 刷新 Token
+			auth.POST("/refresh-token", authCtrl.RefreshToken)
+			// TODO: 后续接入
+			// auth.POST("/send-code", smsCtrl.SendCode)         // 发送验证码
+			// auth.POST("/login/phone", authCtrl.PhoneLogin)    // 手机号验证码登录
+			// auth.POST("/login/apple", authCtrl.AppleLogin)    // Apple ID 登录
+			// auth.POST("/login/google", authCtrl.GoogleLogin)  // Google 登录
+			// auth.POST("/login/email", authCtrl.EmailLogin)    // Email 登录
+		}
 	}
 
-	// --- 可选鉴权接口（登录态可选，用于个性化推荐） ---
+	// --- 可选鉴权接口（登录态可选，用于个性化推荐）---
 	optional := v1.Group("")
 	optional.Use(middleware.OptionalAuth(deps.JWTMgr))
 	{
-		// 后续接入：首页Feed流、推荐、攻略列表、路线列表、地点详情等
+		// 获取其他用户公开信息（游客也可访问，未登录 is_following=false）
+		optional.GET("/user/:user_id/profile", userCtrl.GetOtherProfile)
+		// TODO: 后续接入
+		// optional.GET("/feed", feedCtrl.List)            // 首页 Feed 流
+		// optional.GET("/guides", guideCtrl.List)         // 攻略列表
+		// optional.GET("/routes", routeCtrl.List)         // 路线列表
+		// optional.GET("/places/:id", placeCtrl.Detail)   // 地点详情
 	}
 
 	// --- 鉴权接口（必须登录）---
-	auth := v1.Group("")
-	auth.Use(middleware.Auth(deps.JWTMgr))
+	authGroup := v1.Group("")
+	authGroup.Use(middleware.Auth(deps.JWTMgr))
 	{
-		// 后续接入：发布内容、打卡、行程管理、关注/点赞/收藏/评论等
+		// 用户信息
+		user := authGroup.Group("/user")
+		{
+			user.GET("/profile", userCtrl.GetProfile)       // 获取当前用户信息
+			user.PUT("/profile", userCtrl.UpdateProfile)    // 更新用户资料
+			// TODO: 后续接入
+			// user.POST("/bind-phone", userCtrl.BindPhone)   // 绑定手机号
+			// user.POST("/bind-email", userCtrl.BindEmail)   // 绑定邮箱
+			// user.POST("/logout", authCtrl.Logout)          // 退出登录
+		}
+		// TODO: 后续接入
+		// authGroup.POST("/checkins", checkinCtrl.Create)         // 发布打卡
+		// authGroup.POST("/trips", tripCtrl.Create)               // 创建行程
+		// authGroup.POST("/comments", commentCtrl.Create)         // 发表评论
+		// authGroup.POST("/follows/:user_id", followCtrl.Follow)  // 关注用户
+		// authGroup.POST("/favorites", favoriteCtrl.Create)       // 收藏
+		// authGroup.POST("/likes", likeCtrl.Create)               // 点赞
 	}
 
 	return r
