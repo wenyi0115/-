@@ -91,6 +91,18 @@ const debugPage = `<!DOCTYPE html>
         <button class="api-item" data-api="trip-detail"><span class="method GET">GET</span>行程详情</button>
       </div>
       <div class="api-group">
+        <div class="api-group-title">社交互动（需登录+DB）</div>
+        <button class="api-item" data-api="follow"><span class="method POST">POST</span>关注用户</button>
+        <button class="api-item" data-api="unfollow"><span class="method POST">POST</span>取消关注</button>
+        <button class="api-item" data-api="favorite"><span class="method POST">POST</span>收藏</button>
+        <button class="api-item" data-api="unfavorite"><span class="method POST">POST</span>取消收藏</button>
+        <button class="api-item" data-api="favorite-list"><span class="method GET">GET</span>收藏列表</button>
+        <button class="api-item" data-api="comment-create"><span class="method POST">POST</span>发布评论</button>
+        <button class="api-item" data-api="comment-list"><span class="method GET">GET</span>评论列表</button>
+        <button class="api-item" data-api="comment-like"><span class="method POST">POST</span>评论点赞</button>
+        <button class="api-item" data-api="tip-vote"><span class="method POST">POST</span>避雷点赞</button>
+      </div>
+      <div class="api-group">
         <div class="api-group-title">系统</div>
         <button class="api-item" data-api="health"><span class="method GET">GET</span>健康检查</button>
       </div>
@@ -238,6 +250,107 @@ const APIs = {
     method: 'GET', path: '/health',
     desc: '服务健康检查',
     params: []
+  },
+  follow: {
+    method: 'POST', path: '/api/v1/social/follow',
+    desc: '关注用户（需登录+数据库，未配置DB返回9001）',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'user_id', label: '目标用户ID', type: 'input', value: '10002'}
+    ],
+    bodyFields: ['user_id']
+  },
+  unfollow: {
+    method: 'POST', path: '/api/v1/social/unfollow',
+    desc: '取消关注',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'user_id', label: '目标用户ID', type: 'input', value: '10002'}
+    ],
+    bodyFields: ['user_id']
+  },
+  favorite: {
+    method: 'POST', path: '/api/v1/social/favorite',
+    desc: '收藏(route/place/guide/trip)',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'target_type', label: '目标类型', type: 'select', value: 'route', options: [
+        {v:'route', l:'路线'}, {v:'place', l:'地点'}, {v:'guide', l:'攻略'}, {v:'trip', l:'行程'}
+      ]},
+      {name: 'target_id', label: '目标ID', type: 'input', value: '2001'}
+    ],
+    bodyFields: ['target_type', 'target_id']
+  },
+  unfavorite: {
+    method: 'POST', path: '/api/v1/social/unfavorite',
+    desc: '取消收藏',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'target_type', label: '目标类型', type: 'select', value: 'route', options: [
+        {v:'route', l:'路线'}, {v:'place', l:'地点'}, {v:'guide', l:'攻略'}, {v:'trip', l:'行程'}
+      ]},
+      {name: 'target_id', label: '目标ID', type: 'input', value: '2001'}
+    ],
+    bodyFields: ['target_type', 'target_id']
+  },
+  'favorite-list': {
+    method: 'GET', path: '/api/v1/social/favorite/list',
+    desc: '我的收藏列表',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'target_type', label: '类型筛选', type: 'select', value: '', options: [
+        {v:'', l:'全部'}, {v:'route', l:'路线'}, {v:'place', l:'地点'}, {v:'guide', l:'攻略'}, {v:'trip', l:'行程'}
+      ]},
+      {name: 'page', label: '页码', type: 'input', value: '1'},
+      {name: 'page_size', label: '每页数量', type: 'input', value: '20'}
+    ]
+  },
+  'comment-create': {
+    method: 'POST', path: '/api/v1/social/comment',
+    desc: '发布评论或二级回复',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'target_type', label: '目标类型', type: 'select', value: 'route', options: [
+        {v:'route', l:'路线'}, {v:'place', l:'地点'}, {v:'guide', l:'攻略'}
+      ]},
+      {name: 'target_id', label: '目标ID', type: 'input', value: '2001'},
+      {name: 'content', label: '评论内容', type: 'input', value: '这条路线很棒，上周末刚走过！'},
+      {name: 'parent_id', label: '父评论ID(可选)', type: 'input', value: ''}
+    ],
+    bodyFields: ['target_type', 'target_id', 'content', 'parent_id']
+  },
+  'comment-list': {
+    method: 'GET', path: '/api/v1/social/comment/list',
+    desc: '评论列表（游客可访问，无需Token）',
+    params: [
+      {name: 'target_type', label: '目标类型', type: 'select', value: 'route', options: [
+        {v:'route', l:'路线'}, {v:'place', l:'地点'}, {v:'guide', l:'攻略'}
+      ]},
+      {name: 'target_id', label: '目标ID', type: 'input', value: '2001'},
+      {name: 'sort', label: '排序', type: 'select', value: 'newest', options: [
+        {v:'newest', l:'最新'}, {v:'hottest', l:'最热'}
+      ]},
+      {name: 'page', label: '页码', type: 'input', value: '1'},
+      {name: 'page_size', label: '每页数量', type: 'input', value: '20'}
+    ]
+  },
+  'comment-like': {
+    method: 'POST', path: '/api/v1/social/comments/{id}/like',
+    desc: '评论点赞(Toggle，已点赞则取消)',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'id', label: '评论ID', type: 'input', value: '7001'}
+    ]
+  },
+  'tip-vote': {
+    method: 'POST', path: '/api/v1/social/tip-vote',
+    desc: '避雷"有用"点赞',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'checkin_id', label: '打卡记录ID', type: 'input', value: '6001'},
+      {name: 'tip_index', label: '避雷索引(0-based)', type: 'input', value: '0'}
+    ],
+    bodyFields: ['checkin_id', 'tip_index']
   }
 };
 
@@ -324,8 +437,26 @@ function sendRequest() {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = 'Bearer ' + token;
   const opts = { method: api.method, headers: headers };
-  if (api.method === 'POST' && api.body) {
-    opts.body = api.body;
+  if (api.method === 'POST' || api.method === 'PUT' || api.method === 'DELETE') {
+    if (api.body) {
+      opts.body = api.body;
+    } else if (api.bodyFields) {
+      // 根据 bodyFields 从 inputs 收集字段动态构造 JSON body
+      const bodyObj = {};
+      api.bodyFields.forEach(fn => {
+        inputs.forEach(inp => {
+          if (inp.dataset.param === fn && inp.value !== '') {
+            // 数值字段自动转 number
+            if (fn === 'user_id' || fn === 'target_id' || fn === 'checkin_id' || fn === 'tip_index' || fn === 'parent_id') {
+              bodyObj[fn] = parseInt(inp.value, 10);
+            } else {
+              bodyObj[fn] = inp.value;
+            }
+          }
+        });
+      });
+      opts.body = JSON.stringify(bodyObj);
+    }
   }
 
   const start = performance.now();

@@ -78,18 +78,38 @@ func New(deps Dependencies) *gin.Engine {
 		tripRepo = repository.NewTripRepository(deps.DB)
 	}
 
+	// 社交仓库（仅 DB 可用时创建）
+	var followRepo repository.FollowRepository
+	var favoriteRepo repository.FavoriteRepository
+	var commentRepo repository.CommentRepository
+	var commentLikeRepo repository.CommentLikeRepository
+	var tipVoteRepo repository.TipVoteRepository
+	if deps.DB != nil {
+		followRepo = repository.NewFollowRepository(deps.DB)
+		favoriteRepo = repository.NewFavoriteRepository(deps.DB)
+		commentRepo = repository.NewCommentRepository(deps.DB)
+		commentLikeRepo = repository.NewCommentLikeRepository(deps.DB)
+		tipVoteRepo = repository.NewTipVoteRepository(deps.DB)
+	}
+
 	// === 依赖注入：服务层 ===
 	wechatCli := wechat.NewClient(deps.Config.WeChat)
 	authSvc := service.NewAuthService(deps.DB, userRepo, oauthRepo, wechatCli, deps.JWTMgr)
 	userSvc := service.NewUserService(userRepo)
 	contentSvc := service.NewContentService(placeRepo, routeRepo, guideRepo, checkinRepo)
 	tripSvc := service.NewTripService(tripRepo, routeRepo, placeRepo)
+	socialSvc := service.NewSocialService(
+		deps.DB, userRepo, followRepo, favoriteRepo,
+		commentRepo, commentLikeRepo, tipVoteRepo,
+		checkinRepo, placeRepo, routeRepo, guideRepo,
+	)
 
 	// === 依赖注入：控制器层 ===
 	authCtrl := controller.NewAuthController(authSvc)
 	userCtrl := controller.NewUserController(userSvc)
 	contentCtrl := controller.NewContentController(contentSvc)
 	tripCtrl := controller.NewTripController(tripSvc)
+	socialCtrl := controller.NewSocialController(socialSvc)
 
 	// API v1 路由组
 	v1 := r.Group("/api/v1")
@@ -144,6 +164,13 @@ func New(deps Dependencies) *gin.Engine {
 			content.GET("/place/:place_id", contentCtrl.PlaceDetail) // 地点详情
 			content.GET("/guide/:guide_id", contentCtrl.GuideDetail) // 攻略详情
 		}
+
+		// 社交：评论列表 / 二级回复列表（游客可看）
+		socialPub := optional.Group("/social")
+		{
+			socialPub.GET("/comment/list", socialCtrl.CommentList)     // 6.9 评论列表
+			socialPub.GET("/comment/replies", socialCtrl.CommentReplies) // 6.10 二级回复
+		}
 	}
 
 	// --- 鉴权接口（必须登录）---
@@ -182,6 +209,32 @@ func New(deps Dependencies) *gin.Engine {
 			trips.POST("/:trip_id/point/:point_id/skip", tripCtrl.SkipPoint)     // 4.8 跳过点位
 			trips.POST("/:trip_id/point/:point_id/unskip", tripCtrl.UnskipPoint) // 4.9 取消跳过
 			// TODO: 4.5/4.6 打卡 / 4.7 打卡同步 / 4.11 AI规划 / 4.16 清单管理
+		}
+
+		// 社交互动（必须登录）
+		social := authGroup.Group("/social")
+		{
+			// 关注
+			social.POST("/follow", socialCtrl.Follow)                 // 6.1
+			social.POST("/unfollow", socialCtrl.Unfollow)             // 6.2
+			social.GET("/following/list", socialCtrl.FollowingList)   // 6.3
+			social.GET("/follower/list", socialCtrl.FollowerList)     // 6.4
+
+			// 收藏
+			social.POST("/favorite", socialCtrl.Favorite)             // 6.5
+			social.POST("/unfavorite", socialCtrl.Unfavorite)         // 6.6
+			social.GET("/favorite/list", socialCtrl.FavoriteList)     // 6.7
+
+			// 评论
+			social.POST("/comment", socialCtrl.CreateComment)         // 6.8
+			social.DELETE("/comment/:comment_id", socialCtrl.DeleteComment) // 6.11
+
+			// 避雷"有用"点赞
+			social.POST("/tip-vote", socialCtrl.TipVote)              // 6.12
+			social.POST("/tip-unvote", socialCtrl.UnvoteTip)          // 6.13
+
+			// 评论点赞（Toggle）
+			social.POST("/comments/:id/like", socialCtrl.ToggleCommentLike) // 6.21
 		}
 	}
 
