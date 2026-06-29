@@ -85,6 +85,12 @@ const debugPage = `<!DOCTYPE html>
         <button class="api-item" data-api="guide-detail"><span class="method GET">GET</span>攻略详情</button>
       </div>
       <div class="api-group">
+        <div class="api-group-title">行程管理（需登录+DB）</div>
+        <button class="api-item" data-api="trip-create"><span class="method POST">POST</span>创建行程</button>
+        <button class="api-item" data-api="trip-list"><span class="method GET">GET</span>行程列表</button>
+        <button class="api-item" data-api="trip-detail"><span class="method GET">GET</span>行程详情</button>
+      </div>
+      <div class="api-group">
         <div class="api-group-title">系统</div>
         <button class="api-item" data-api="health"><span class="method GET">GET</span>健康检查</button>
       </div>
@@ -197,6 +203,37 @@ const APIs = {
       {name: 'guide_id', label: '攻略ID', type: 'input', value: '4001'}
     ]
   },
+  'trip-create': {
+    method: 'POST', path: '/api/v1/trips/create',
+    desc: '创建行程（需登录+数据库，未配置DB会返回9001）',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'name', label: '行程名称', type: 'input', value: '荆州周末游'},
+      {name: 'trip_date', label: '出行日期', type: 'input', value: '2026-07-15'},
+      {name: 'route_id', label: '路线ID(可选)', type: 'input', value: '2001'}
+    ],
+    body: '{"name":"荆州周末游","trip_date":"2026-07-15","route_id":2001}'
+  },
+  'trip-list': {
+    method: 'GET', path: '/api/v1/trips/list',
+    desc: '行程列表（需登录+数据库）',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'status', label: '状态筛选', type: 'select', value: '', options: [
+        {v:'', l:'全部'}, {v:'pending', l:'待出发'}, {v:'active', l:'进行中'}, {v:'completed', l:'已完成'}
+      ]},
+      {name: 'page', label: '页码', type: 'input', value: '1'},
+      {name: 'page_size', label: '每页数量', type: 'input', value: '20'}
+    ]
+  },
+  'trip-detail': {
+    method: 'GET', path: '/api/v1/trips/{trip_id}',
+    desc: '行程详情（需登录+数据库）',
+    params: [
+      {name: 'token', label: '登录Token', type: 'input', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxMDAwMSwib3Blbl9pZCI6InRlc3Rfb3BlbmlkXzEwMDAxIiwibmlja25hbWUiOiLlsI_mmI7niLHml4XooYwiLCJpc3MiOiJ4dW5sdmppIiwic3ViIjoiMTAwMDEiLCJhdWQiOlsiYWNjZXNzIl0sImV4cCI6MTc4Mjc1OTcxMSwiaWF0IjoxNzgyNzUyNTExfQ.LRTWZXz5d6a_Xseautg1rHWTfpmJIjnLaRk7EpTnazk'},
+      {name: 'trip_id', label: '行程ID', type: 'input', value: '5001'}
+    ]
+  },
   health: {
     method: 'GET', path: '/health',
     desc: '服务健康检查',
@@ -261,10 +298,13 @@ function sendRequest() {
   let url = api.path;
   let pathParams = {};
   let queryParams = {};
+  let token = '';
   inputs.forEach(inp => {
     const name = inp.dataset.param;
     const val = inp.value;
-    if (api.path.includes('{' + name + '}')) {
+    if (name === 'token') {
+      token = val;
+    } else if (api.path.includes('{' + name + '}')) {
       pathParams[name] = val;
     } else {
       if (val) queryParams[name] = val;
@@ -281,8 +321,15 @@ function sendRequest() {
   btn.textContent = '请求中...';
   document.getElementById('responseSection').style.display = 'none';
 
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const opts = { method: api.method, headers: headers };
+  if (api.method === 'POST' && api.body) {
+    opts.body = api.body;
+  }
+
   const start = performance.now();
-  fetch(url, { method: api.method })
+  fetch(url, opts)
     .then(r => {
       const duration = (performance.now() - start).toFixed(0);
       const statusBadge = document.getElementById('statusBadge');

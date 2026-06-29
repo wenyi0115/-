@@ -72,16 +72,24 @@ func New(deps Dependencies) *gin.Engine {
 		checkinRepo = repository.NewCheckinRepository(deps.DB)
 	}
 
+	// 行程仓库始终用真实实现（Mock 模式下用独立 DB 实例或后续扩展）
+	var tripRepo repository.TripRepository
+	if deps.DB != nil {
+		tripRepo = repository.NewTripRepository(deps.DB)
+	}
+
 	// === 依赖注入：服务层 ===
 	wechatCli := wechat.NewClient(deps.Config.WeChat)
 	authSvc := service.NewAuthService(deps.DB, userRepo, oauthRepo, wechatCli, deps.JWTMgr)
 	userSvc := service.NewUserService(userRepo)
 	contentSvc := service.NewContentService(placeRepo, routeRepo, guideRepo, checkinRepo)
+	tripSvc := service.NewTripService(tripRepo, routeRepo, placeRepo)
 
 	// === 依赖注入：控制器层 ===
 	authCtrl := controller.NewAuthController(authSvc)
 	userCtrl := controller.NewUserController(userSvc)
 	contentCtrl := controller.NewContentController(contentSvc)
+	tripCtrl := controller.NewTripController(tripSvc)
 
 	// API v1 路由组
 	v1 := r.Group("/api/v1")
@@ -154,11 +162,27 @@ func New(deps Dependencies) *gin.Engine {
 		}
 		// TODO: 后续接入
 		// authGroup.POST("/checkins", checkinCtrl.Create)         // 发布打卡
-		// authGroup.POST("/trips", tripCtrl.Create)               // 创建行程
 		// authGroup.POST("/comments", commentCtrl.Create)         // 发表评论
 		// authGroup.POST("/follows/:user_id", followCtrl.Follow)  // 关注用户
 		// authGroup.POST("/favorites", favoriteCtrl.Create)       // 收藏
 		// authGroup.POST("/likes", likeCtrl.Create)               // 点赞
+
+		// 行程管理（必须登录）
+		trips := authGroup.Group("/trips")
+		{
+			trips.POST("/create", tripCtrl.Create)                          // 4.1 创建行程
+			trips.GET("/list", tripCtrl.List)                               // 4.2 行程列表
+			trips.GET("/:trip_id", tripCtrl.Detail)                        // 4.3 行程详情
+			trips.PUT("/:trip_id", tripCtrl.Update)                        // 4.14 编辑行程
+			trips.DELETE("/:trip_id", tripCtrl.Delete)                     // 4.10 删除行程
+			trips.POST("/:trip_id/start", tripCtrl.Start)                  // 4.4 开始行程
+			trips.POST("/:trip_id/complete", tripCtrl.Complete)            // 4.15 结束行程
+			trips.POST("/:trip_id/points", tripCtrl.AddPoint)              // 4.12 添加点位
+			trips.DELETE("/:trip_id/point/:point_id", tripCtrl.DeletePoint) // 4.13 删除点位
+			trips.POST("/:trip_id/point/:point_id/skip", tripCtrl.SkipPoint)     // 4.8 跳过点位
+			trips.POST("/:trip_id/point/:point_id/unskip", tripCtrl.UnskipPoint) // 4.9 取消跳过
+			// TODO: 4.5/4.6 打卡 / 4.7 打卡同步 / 4.11 AI规划 / 4.16 清单管理
+		}
 	}
 
 	return r
