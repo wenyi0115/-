@@ -42,13 +42,35 @@ func New(deps Dependencies) *gin.Engine {
 		response.Success(c, gin.H{"message": "pong"})
 	})
 
+	// 开发预览页面（debug 模式注册）
+	if deps.Config.App.Mode == "debug" {
+		RegisterDebugRoutes(r)
+	}
+
 	// === 依赖注入：仓库层 ===
-	userRepo := repository.NewUserRepository(deps.DB)
-	oauthRepo := repository.NewOAuthRepository(deps.DB)
-	placeRepo := repository.NewPlaceRepository(deps.DB)
-	routeRepo := repository.NewRouteRepository(deps.DB)
-	guideRepo := repository.NewGuideRepository(deps.DB)
-	checkinRepo := repository.NewCheckinRepository(deps.DB)
+	// debug 模式且 DB 不可用时，使用 Mock 仓库返回预设荆州数据（开发预览）
+	var userRepo repository.UserRepository
+	var oauthRepo repository.OAuthRepository
+	var placeRepo repository.PlaceRepository
+	var routeRepo repository.RouteRepository
+	var guideRepo repository.GuideRepository
+	var checkinRepo repository.CheckinRepository
+
+	useMock := deps.DB == nil && deps.Config.App.Mode == "debug"
+	if useMock {
+		// Mock 模式：仅内容仓库用 Mock（用户/认证仓库无 Mock，登录走真实逻辑会失败）
+		placeRepo = repository.NewMockPlaceRepository()
+		routeRepo = repository.NewMockRouteRepository()
+		guideRepo = repository.NewMockGuideRepository()
+		checkinRepo = repository.NewMockCheckinRepository()
+	} else {
+		userRepo = repository.NewUserRepository(deps.DB)
+		oauthRepo = repository.NewOAuthRepository(deps.DB)
+		placeRepo = repository.NewPlaceRepository(deps.DB)
+		routeRepo = repository.NewRouteRepository(deps.DB)
+		guideRepo = repository.NewGuideRepository(deps.DB)
+		checkinRepo = repository.NewCheckinRepository(deps.DB)
+	}
 
 	// === 依赖注入：服务层 ===
 	wechatCli := wechat.NewClient(deps.Config.WeChat)
