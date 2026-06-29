@@ -45,15 +45,21 @@ func New(deps Dependencies) *gin.Engine {
 	// === 依赖注入：仓库层 ===
 	userRepo := repository.NewUserRepository(deps.DB)
 	oauthRepo := repository.NewOAuthRepository(deps.DB)
+	placeRepo := repository.NewPlaceRepository(deps.DB)
+	routeRepo := repository.NewRouteRepository(deps.DB)
+	guideRepo := repository.NewGuideRepository(deps.DB)
+	checkinRepo := repository.NewCheckinRepository(deps.DB)
 
 	// === 依赖注入：服务层 ===
 	wechatCli := wechat.NewClient(deps.Config.WeChat)
 	authSvc := service.NewAuthService(deps.DB, userRepo, oauthRepo, wechatCli, deps.JWTMgr)
 	userSvc := service.NewUserService(userRepo)
+	contentSvc := service.NewContentService(placeRepo, routeRepo, guideRepo, checkinRepo)
 
 	// === 依赖注入：控制器层 ===
 	authCtrl := controller.NewAuthController(authSvc)
 	userCtrl := controller.NewUserController(userSvc)
+	contentCtrl := controller.NewContentController(contentSvc)
 
 	// API v1 路由组
 	v1 := r.Group("/api/v1")
@@ -87,11 +93,27 @@ func New(deps Dependencies) *gin.Engine {
 	{
 		// 获取其他用户公开信息（游客也可访问，未登录 is_following=false）
 		optional.GET("/user/:user_id/profile", userCtrl.GetOtherProfile)
-		// TODO: 后续接入
-		// optional.GET("/feed", feedCtrl.List)            // 首页 Feed 流
-		// optional.GET("/guides", guideCtrl.List)         // 攻略列表
-		// optional.GET("/routes", routeCtrl.List)         // 路线列表
-		// optional.GET("/places/:id", placeCtrl.Detail)   // 地点详情
+
+		// 内容浏览（Feed 流 + 详情），游客可访问
+		content := optional.Group("/content")
+		{
+			// Feed 流
+			feed := content.Group("/feed")
+			{
+				feed.GET("/recommend", contentCtrl.RecommendFeed) // 推荐流
+				feed.GET("/guide", contentCtrl.GuideFeed)         // 攻略流
+				feed.GET("/place", contentCtrl.PlaceFeed)         // 打卡地流
+				feed.GET("/route", contentCtrl.RouteFeed)         // 路线流
+				feed.GET("/nearby", contentCtrl.NearbyFeed)       // 附近流
+				// TODO: 后续接入
+				// feed.GET("/following", contentCtrl.FollowingFeed) // 关注流 @auth
+				// feed.GET("/city", contentCtrl.CityFeed)           // 城市流
+			}
+			// 详情
+			content.GET("/route/:route_id", contentCtrl.RouteDetail) // 路线详情
+			content.GET("/place/:place_id", contentCtrl.PlaceDetail) // 地点详情
+			content.GET("/guide/:guide_id", contentCtrl.GuideDetail) // 攻略详情
+		}
 	}
 
 	// --- 鉴权接口（必须登录）---
